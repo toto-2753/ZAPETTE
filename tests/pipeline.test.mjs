@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import { parseM3U, splitTitle, writeM3U } from '../scripts/lib/m3u.mjs';
-import { checkStream, interleaveByHost, parseMaster, pool } from '../scripts/lib/hls-check.mjs';
+import { checkStream, hostPool, interleaveByHost, parseMaster, pool } from '../scripts/lib/hls-check.mjs';
 import { buildCandidates, finalize, pickLogo } from '../scripts/lib/catalog.mjs';
 
 // ---------- Serveur HLS de test ----------
@@ -146,6 +146,28 @@ describe('outils', () => {
     });
     expect(peak).toBe(2);
     expect(out).toEqual([2, 4, 6, 8, 10, 12]);
+  });
+  it('hostPool : plafond par serveur et pas de blocage par un serveur lent', async () => {
+    const urls = [
+      ...Array.from({ length: 12 }, (_, i) => `https://lent.example/${i}`),
+      ...Array.from({ length: 12 }, (_, i) => `https://rapide.example/${i}`),
+    ];
+    const running = new Map();
+    let peakSlow = 0;
+    const finished = [];
+    await hostPool(urls, { concurrency: 6, perHost: 2 }, async (u) => {
+      const h = new URL(u).host;
+      running.set(h, (running.get(h) || 0) + 1);
+      if (h === 'lent.example') peakSlow = Math.max(peakSlow, running.get(h));
+      await new Promise((r) => setTimeout(r, h === 'lent.example' ? 60 : 2));
+      running.set(h, running.get(h) - 1);
+      finished.push(h);
+    });
+    expect(finished).toHaveLength(24);
+    expect(peakSlow).toBe(2);
+    // Tous les liens rapides finissent avant la moitié des liens lents.
+    const lastFast = finished.lastIndexOf('rapide.example');
+    expect(finished.slice(0, lastFast + 1).filter((h) => h === 'lent.example').length).toBeLessThan(6);
   });
   it('interleaveByHost étale les serveurs', () => {
     const out = interleaveByHost(['https://a/1', 'https://a/2', 'https://a/3', 'https://b/1']);

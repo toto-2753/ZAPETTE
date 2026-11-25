@@ -12,7 +12,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { parseM3U, writeM3U } from './lib/m3u.mjs';
 import { buildCandidates, finalize } from './lib/catalog.mjs';
-import { checkStream, interleaveByHost, pool } from './lib/hls-check.mjs';
+import { checkStream, hostPool } from './lib/hls-check.mjs';
 import { encryptCatalog, ITERATIONS, playlistToken, saltFor } from './lib/vault.mjs';
 import categoriesFr from '../shared/categories-fr.json' with { type: 'json' };
 
@@ -24,6 +24,7 @@ const { values: args } = parseArgs({
     'no-check': { type: 'boolean', default: false },
     concurrency: { type: 'string', default: '48' },
     'per-host': { type: 'string', default: '6' },
+    'host-breaker': { type: 'string', default: '6' },
     timeout: { type: 'string', default: '8000' },
     origin: { type: 'string', default: process.env.ZAPETTE_ORIGIN || 'https://zapette.app' },
     out: { type: 'string', default: 'public' },
@@ -91,70 +92,84 @@ async function loadExtra() {
   return entries;
 }
 
-// Limite le nombre de requêtes simultanées vers un même serveur.
-function hostLimiter(max) {
-  const busy = new Map();
-  return async (url, fn) => {
-    let host = url;
-    try {
-      host = new URL(url).host;
-    } catch {
-      /* rien */
-    }
-    while ((busy.get(host) || 0) >= max) await new Promise((r) => setTimeout(r, 40));
-    busy.set(host, (busy.get(host) || 0) + 1);
-    try {
-      return await fn();
-    } finally {
-      busy.set(host, busy.get(host) - 1);
-    }
-  };
-}
-
 const TRANSIENT = /timeout|ECONNRESET|ETIMEDOUT|EAI_AGAIN|UND_ERR|socket|network|fetch failed/i;
+// Erreurs qui touchent tout le serveur (nom inconnu, connexion refusée, certificat, délai dépassé).
+const HOST_LEVEL = /timeout|ENOTFOUND|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|EAI_AGAIN|CERT|certificate|SSL|TLS|UND_ERR_CONNECT|fetch failed/i;
+
+const hostOf = (u) => {
+  try {
+    return new URL(u).host;
+  } catch {
+    return u;
+  }
+};
 
 async function verify(urls) {
   const concurrency = Number(args.concurrency);
   const timeout = Number(args.timeout);
-  const limit = hostLimiter(Number(args['per-host']));
+  const breaker = Number(args['host-breaker']);
+  const perHost = Number(args['per-host']);
   const results = new Map();
+  // Par serveur : réponses valides et pannes « serveur entier ». Un serveur qui échoue `breaker` fois
+  // sans jamais répondre est considéré hors ligne : ses autres liens ne sont pas testés un à un
+  // (les vieux liens du fork pointent souvent vers des serveurs disparus, avec des centaines de flux).
+  const hosts = new Map();
+  const hostState = (u) => {
+    const h = hostOf(u);
+    if (!hosts.has(h)) hosts.set(h, { ok: 0, down: 0 });
+    return hosts.get(h);
+  };
+  let skipped = 0;
   const t0 = Date.now();
   let last = 0;
   const progress = (done, total) => {
-    if (done - last >= 500 || done === total) {
+    if (done - last >= 1000 || done === total) {
       last = done;
       const alive = [...results.values()].filter((r) => r.ok).length;
-      log(`  ${done}/${total} testés — ${alive} en ligne — ${Math.round((Date.now() - t0) / 1000)} s`);
+      log(`  ${done}/${total} testés — ${alive} en ligne — ${skipped} sur serveurs hors ligne — ${Math.round((Date.now() - t0) / 1000)} s`);
     }
   };
-  const order = interleaveByHost(urls);
-  await pool(order, concurrency, async (url) => {
-    const r = await limit(url, () => checkStream(url, { timeout, origin: args.origin }));
-    results.set(url, r);
+  const test = async (url, t) => {
+    const st = hostState(url);
+    if (st.ok === 0 && st.down >= breaker) {
+      skipped++;
+      return { ok: false, restricted: false, https: url.startsWith('https:'), cors: false, ms: 0, height: null, reason: 'serveur hors ligne' };
+    }
+    const r = await checkStream(url, { timeout: t, origin: args.origin });
+    if (r.ok || r.restricted) st.ok++;
+    else if (HOST_LEVEL.test(r.reason)) st.down++;
     return r;
-  }, progress);
+  };
+  await hostPool(
+    urls,
+    { concurrency, perHost },
+    async (url) => {
+      results.set(url, await test(url, timeout));
+    },
+    progress,
+  );
 
-  // Deuxième chance pour les échecs passagers (coupure réseau, serveur lent), bornée pour garder
-  // la vérification sous ~30 minutes même quand des milliers de vieux liens ne répondent plus.
-  const retry = order
+  // Deuxième chance pour les échecs passagers, seulement sur les serveurs qui répondent par ailleurs
+  // (un serveur entièrement muet ne sera pas plus bavard dans une minute). Bornée en nombre.
+  const retry = urls
     .filter((u) => {
       const r = results.get(u);
-      return !r.ok && !r.restricted && TRANSIENT.test(r.reason);
+      return !r.ok && !r.restricted && TRANSIENT.test(r.reason) && hostState(u).ok > 0;
     })
-    .slice(0, 3000);
+    .slice(0, 1500);
   if (retry.length) {
     log(`Nouvel essai pour ${retry.length} flux en échec passager…`);
     let recovered = 0;
-    await pool(retry, Math.max(8, concurrency >> 1), async (url) => {
-      const r = await limit(url, () => checkStream(url, { timeout: timeout + 4000, origin: args.origin }));
+    await hostPool(retry, { concurrency: Math.max(8, concurrency >> 1), perHost }, async (url) => {
+      const r = await checkStream(url, { timeout: timeout + 4000, origin: args.origin });
       if (r.ok || r.restricted) {
         results.set(url, r);
         recovered++;
       }
-      return r;
     });
     log(`  ${recovered} flux récupérés au deuxième essai.`);
   }
+  log(`Serveurs hors ligne : ${[...hosts.values()].filter((h) => h.ok === 0 && h.down >= breaker).length} (${skipped} liens non retestés).`);
   return { results, seconds: Math.round((Date.now() - t0) / 1000) };
 }
 

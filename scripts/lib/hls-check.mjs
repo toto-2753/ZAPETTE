@@ -250,3 +250,62 @@ export function interleaveByHost(urls) {
   }
   return out;
 }
+
+const hostKey = (u) => {
+  try {
+    return new URL(u).host;
+  } catch {
+    return u;
+  }
+};
+
+/**
+ * Comme `pool`, mais avec au plus `perHost` requêtes simultanées par serveur, sans blocage en tête
+ * de file : un serveur lent ou saturé n'empêche jamais les autres d'avancer.
+ */
+export async function hostPool(urls, { concurrency, perHost }, worker, onProgress) {
+  const queues = new Map();
+  for (const u of urls) {
+    const h = hostKey(u);
+    if (!queues.has(h)) queues.set(h, []);
+    queues.get(h).push(u);
+  }
+  const active = [...queues.keys()];
+  const inflight = new Map();
+  let rr = 0;
+  let pending = urls.length;
+  let done = 0;
+  const take = () => {
+    for (let k = 0; k < active.length; k++) {
+      const idx = (rr + k) % active.length;
+      const h = active[idx];
+      if ((inflight.get(h) || 0) >= perHost) continue;
+      const q = queues.get(h);
+      const u = q.shift();
+      if (!q.length) active.splice(idx, 1);
+      rr = active.length ? (q.length ? idx + 1 : idx) % active.length : 0;
+      return [h, u];
+    }
+    return null;
+  };
+  const run = async () => {
+    while (pending > 0) {
+      const item = take();
+      if (!item) {
+        await new Promise((r) => setTimeout(r, 10));
+        continue;
+      }
+      pending--;
+      const [h, u] = item;
+      inflight.set(h, (inflight.get(h) || 0) + 1);
+      try {
+        await worker(u);
+      } finally {
+        inflight.set(h, inflight.get(h) - 1);
+        done++;
+        onProgress?.(done, urls.length);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, run));
+}

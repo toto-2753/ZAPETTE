@@ -1,0 +1,19 @@
+{
+  "mode": "yolo",
+  "granularity": "coarse",
+  "workflow": {
+    "research": false,
+    "plan_check": false,
+    "verifier": true,
+    "auto_advance": true
+  },
+  "planning": {
+    "commit_docs": true
+  },
+  "git": {
+    "create_tag": false
+  },
+  "parallelization": {
+    "enabled": false
+  }
+}

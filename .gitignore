@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dev-dist/
+# Données générées par scripts/update-data.mjs (reconstruites toutes les 6 h par la CI)
+public/data/
+public/playlists/
+e2e/.out/
+.DS_Store
+*.log

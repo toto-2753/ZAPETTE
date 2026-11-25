@@ -49,7 +49,10 @@ gratuitement sur GitHub Actions.
    - sans git : sur la page du dépôt, « uploading an existing file », puis glisse tout le contenu du
      dossier (sauf `node_modules` s'il existe).
 4. Dans le dépôt : **Settings → Pages → Source : GitHub Actions**.
-5. Onglet **Actions → « Vérifier les chaînes et publier » → Run workflow**. La première vérification
+5. Choisis qui peut l'utiliser : secret `ZAPETTE_PASSWORD` pour une app privée (voir
+   « Garder l'app privée »), ou variable `ZAPETTE_PUBLIC` = `true` pour une app publique. Sans l'un
+   des deux, le workflow refuse de publier.
+6. Onglet **Actions → « Vérifier les chaînes et publier » → Run workflow**. La première vérification
    prend 10 à 20 minutes.
 
 L'app est alors en ligne sur `https://TON-PSEUDO.github.io/zapette/` et se met à jour toute seule

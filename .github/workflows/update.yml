@@ -22,6 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
+      - name: Vérifier que l'app restera privée
+        env:
+          ZAPETTE_PASSWORD: ${{ secrets.ZAPETTE_PASSWORD }}
+          ZAPETTE_PUBLIC: ${{ vars.ZAPETTE_PUBLIC }}
+        run: |
+          if [ -z "$ZAPETTE_PASSWORD" ] && [ "$ZAPETTE_PUBLIC" != "true" ]; then
+            echo "::error::Publication bloquée : ajoute le secret ZAPETTE_PASSWORD (Settings > Secrets and variables > Actions). Pour une app publique, crée plutôt la variable ZAPETTE_PUBLIC = true."
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7

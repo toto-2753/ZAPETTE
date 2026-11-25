@@ -7,12 +7,12 @@ lecteur, le cast/partage, les films/séries, et enfin la mise en ligne automatiq
 
 ## Phases
 
-- [ ] **Phase 1: Données vérifiées** - pipeline iptv-org + fork ITAnt, vérificateur de liens, sorties compactes
-- [ ] **Phase 2: Interface** - PWA React façon Netflix, navigation, recherche, favoris, réglages
-- [ ] **Phase 3: Lecteur** - HLS, bascule auto, vérification sur l'appareil, VLC
-- [ ] **Phase 4: Cast & partage** - Chromecast, AirPlay, partage natif, QR, M3U
-- [ ] **Phase 5: Films, séries, nouveautés** - rangées thématiques + TMDB / où regarder
-- [ ] **Phase 6: Mise en ligne** - GitHub Actions 6 h + Pages, proxy optionnel, README, tests navigateur
+- [x] **Phase 1: Données vérifiées** - pipeline iptv-org + fork ITAnt, vérificateur de liens, sorties compactes
+- [x] **Phase 2: Interface** - PWA React façon Netflix, navigation, recherche, favoris, réglages
+- [x] **Phase 3: Lecteur** - HLS, bascule auto, vérification sur l'appareil, VLC
+- [x] **Phase 4: Cast & partage** - Chromecast, AirPlay, partage natif, QR, M3U
+- [x] **Phase 5: Films, séries, nouveautés** - rangées thématiques + TMDB / où regarder
+- [x] **Phase 6: Mise en ligne** - GitHub Actions 6 h + Pages, proxy optionnel, README, tests navigateur
 
 ## Phase Details
 
@@ -62,9 +62,9 @@ lecteur, le cast/partage, les films/séries, et enfin la mise en ligne automatiq
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Données vérifiées | 0/1 | Not started | - |
-| 2. Interface | 0/1 | Not started | - |
-| 3. Lecteur | 0/1 | Not started | - |
-| 4. Cast & partage | 0/1 | Not started | - |
-| 5. Films, séries, nouveautés | 0/1 | Not started | - |
-| 6. Mise en ligne | 0/1 | Not started | - |
+| 1. Données vérifiées | 1/1 | Complete | 2026-11-25 |
+| 2. Interface | 1/1 | Complete | 2026-11-25 |
+| 3. Lecteur | 1/1 | Complete | 2026-11-25 |
+| 4. Cast & partage | 1/1 | Complete | 2026-11-25 |
+| 5. Films, séries, nouveautés | 1/1 | Complete | 2026-11-25 |
+| 6. Mise en ligne | 1/1 | Complete | 2026-11-25 |

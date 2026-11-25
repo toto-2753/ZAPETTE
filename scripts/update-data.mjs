@@ -23,7 +23,7 @@ const { values: args } = parseArgs({
     'no-check': { type: 'boolean', default: false },
     concurrency: { type: 'string', default: '48' },
     'per-host': { type: 'string', default: '6' },
-    timeout: { type: 'string', default: '10000' },
+    timeout: { type: 'string', default: '8000' },
     origin: { type: 'string', default: process.env.ZAPETTE_ORIGIN || 'https://zapette.app' },
     out: { type: 'string', default: 'public' },
     limit: { type: 'string' },
@@ -133,19 +133,26 @@ async function verify(urls) {
     return r;
   }, progress);
 
-  // Deuxième chance pour les échecs passagers (timeout, coupure réseau).
-  const retry = order.filter((u) => {
-    const r = results.get(u);
-    return !r.ok && !r.restricted && TRANSIENT.test(r.reason);
-  });
+  // Deuxième chance pour les échecs passagers (coupure réseau, serveur lent), bornée pour garder
+  // la vérification sous ~30 minutes même quand des milliers de vieux liens ne répondent plus.
+  const retry = order
+    .filter((u) => {
+      const r = results.get(u);
+      return !r.ok && !r.restricted && TRANSIENT.test(r.reason);
+    })
+    .slice(0, 3000);
   if (retry.length) {
     log(`Nouvel essai pour ${retry.length} flux en échec passager…`);
-    last = 0;
+    let recovered = 0;
     await pool(retry, Math.max(8, concurrency >> 1), async (url) => {
-      const r = await limit(url, () => checkStream(url, { timeout: timeout * 2, origin: args.origin }));
-      if (r.ok || r.restricted) results.set(url, r);
+      const r = await limit(url, () => checkStream(url, { timeout: timeout + 4000, origin: args.origin }));
+      if (r.ok || r.restricted) {
+        results.set(url, r);
+        recovered++;
+      }
       return r;
     });
+    log(`  ${recovered} flux récupérés au deuxième essai.`);
   }
   return { results, seconds: Math.round((Date.now() - t0) / 1000) };
 }

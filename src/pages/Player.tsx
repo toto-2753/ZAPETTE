@@ -588,9 +588,11 @@ export default function Player({ id }: { id: string }) {
 
       <div className="p-bottom">
         <div className="p-group">
-          <button type="button" className="icon-btn big" onClick={togglePlay} aria-label={paused ? 'Lecture' : 'Pause'}>
-            <Icon name={paused ? 'play' : 'pause'} size={28} />
-          </button>
+          {state === 'playing' && !castingTo && (
+            <button type="button" className="icon-btn big" onClick={togglePlay} aria-label={paused ? 'Lecture' : 'Pause'}>
+              <Icon name={paused ? 'play' : 'pause'} size={28} />
+            </button>
+          )}
           <button type="button" className="icon-btn" onClick={() => zap(-1)} aria-label="Chaîne précédente">
             <Icon name="down" />
           </button>

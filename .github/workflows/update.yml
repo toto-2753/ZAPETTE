@@ -1,0 +1,77 @@
+# Vérifie toutes les chaînes toutes les 6 heures, reconstruit l'app et la publie sur GitHub Pages.
+name: Vérifier les chaînes et publier
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # pour le commit « keepalive » (voir plus bas)
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Récupérer le fork ITAnt (source complémentaire)
+        run: git clone --depth 1 https://github.com/ITAnt/iptv-org /tmp/itant || echo "Fork indisponible, on continue sans."
+
+      - name: Vérifier tous les liens
+        env:
+          ZAPETTE_ORIGIN: https://${{ github.repository_owner }}.github.io
+        run: node scripts/update-data.mjs --extra-dir /tmp/itant/streams --concurrency 64 --per-host 6
+
+      - name: Construire l'app
+        run: npm run build
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      # GitHub coupe les tâches planifiées d'un dépôt public sans activité depuis 60 jours.
+      # Un commit vide tous les ~45 jours garde la vérification automatique en marche.
+      - name: Garder la planification active
+        if: github.event_name == 'schedule'
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            git config user.name "zapette-bot"
+            git config user.email "zapette-bot@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive de la vérification automatique"
+            git push
+          fi
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

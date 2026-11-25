@@ -10,8 +10,10 @@ const CONCURRENCY = 3;
 const TIMEOUT = 8000;
 
 const probedAt = new Map<string, number>();
-const queue: PlayableStream[] = [];
+/** File de chaînes à vérifier : on teste leurs sources une à une jusqu'à en trouver une vivante. */
+const queue: LiveChannel[] = [];
 const queued = new Set<string>();
+const MAX_PER_CHANNEL = 3;
 let running = 0;
 let pendingDead: string[] = [];
 let pendingAlive: string[] = [];
@@ -87,38 +89,53 @@ export async function probeStream(s: PlayableStream): Promise<boolean | null> {
   }
 }
 
-async function pump() {
-  while (running < CONCURRENCY && queue.length) {
-    const s = queue.shift()!;
-    queued.delete(s.u);
-    running++;
-    probeStream(s)
-      .then((ok) => {
-        probedAt.set(s.u, Date.now());
-        if (ok === false) pendingDead.push(s.u);
-        if (ok === true) pendingAlive.push(s.u);
-        scheduleFlush();
-      })
-      .finally(() => {
-        running--;
-        setTimeout(pump, 120);
-      });
+const recentlyProbed = (u: string) => {
+  const t = probedAt.get(u);
+  return t !== undefined && Date.now() - t < PROBE_TTL;
+};
+
+/** Teste les sources d'une chaîne dans l'ordre ; s'arrête à la première vivante (ou indéterminée). */
+async function probeChannel(ch: LiveChannel) {
+  const dead = deadStore.get();
+  const candidates = ch.play.filter((p) => p.mode !== 'external' && !isDead(dead, p.u) && !pendingDead.includes(p.u)).slice(0, MAX_PER_CHANNEL);
+  for (const s of candidates) {
+    if (recentlyProbed(s.u)) return; // déjà vérifiée vivante récemment
+    const ok = await probeStream(s);
+    probedAt.set(s.u, Date.now());
+    if (ok === false) {
+      pendingDead.push(s.u);
+      scheduleFlush();
+      continue;
+    }
+    if (ok === true) pendingAlive.push(s.u);
+    scheduleFlush();
+    return;
   }
 }
 
-/** Ajoute à la file la première source jouable de chaque chaîne (déjà vérifiée récemment = ignorée). */
+async function pump() {
+  while (running < CONCURRENCY && queue.length) {
+    const ch = queue.shift()!;
+    queued.delete(ch.id);
+    running++;
+    probeChannel(ch).finally(() => {
+      running--;
+      setTimeout(pump, 120);
+    });
+  }
+}
+
+/** Ajoute des chaînes à la file (celles vérifiées récemment sont ignorées). */
 export function probeChannels(channels: LiveChannel[]) {
   const settings = settingsStore.get();
   if (!settings.probe || saveData || document.hidden) return;
   const dead = deadStore.get();
-  const now = Date.now();
   for (const ch of channels) {
-    const s = ch.play.find((p) => p.mode !== 'external' && !isDead(dead, p.u));
-    if (!s || queued.has(s.u)) continue;
-    const t = probedAt.get(s.u);
-    if (t && now - t < PROBE_TTL) continue;
-    queued.add(s.u);
-    queue.push(s);
+    if (queued.has(ch.id)) continue;
+    const first = ch.play.find((p) => p.mode !== 'external' && !isDead(dead, p.u));
+    if (!first || recentlyProbed(first.u)) continue;
+    queued.add(ch.id);
+    queue.push(ch);
   }
   void pump();
 }

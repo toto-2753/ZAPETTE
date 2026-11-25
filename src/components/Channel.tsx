@@ -80,7 +80,7 @@ export function ChannelTile({ ch, list }: { ch: LiveChannel; list: LiveChannel[]
       <span className="tile-name">{ch.n}</span>
       <span className="tile-meta">
         {ch.c && <span aria-hidden="true">{countryFlag(ch.c)}</span>}
-        {cat && <span>{cat}</span>}
+        {cat && <span className="cat">{cat}</span>}
         {q && <span className="q">{q}</span>}
       </span>
     </a>

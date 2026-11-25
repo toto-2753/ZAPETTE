@@ -394,12 +394,15 @@ main {
 .hero-plate .logo,
 .hero-plate .logo-fallback {
   width: 34%;
+  height: auto;
   aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
+}
+.hero-plate .logo {
   object-fit: contain;
   padding: 3.5%;
   background: linear-gradient(160deg, var(--plate), var(--plate-2));
-  border-radius: 14px;
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
   filter: none;
 }
 .hero-plate .logo-fallback {
@@ -606,7 +609,7 @@ main {
   height: 66%;
   object-fit: contain;
   /* contour léger : rend lisibles les logos blancs sur la plaque claire */
-  filter: drop-shadow(0 0 0.6px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.5));
 }
 .logo-fallback {
   display: grid;
@@ -653,6 +656,15 @@ main {
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
+}
+.tile-meta span {
+  flex: none;
+}
+.tile-meta .cat {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tile-meta .q {
   color: var(--ink-2);
@@ -1463,10 +1475,12 @@ main {
   overflow: hidden;
   background: linear-gradient(160deg, var(--plate), var(--plate-2));
 }
-.p-logo .logo {
+.p-logo .logo,
+.zap-logo .logo {
   width: 80%;
   height: 70%;
   object-fit: contain;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6));
 }
 .p-logo .logo-fallback {
   font-size: 16px;
@@ -1708,11 +1722,6 @@ main {
   border-radius: 6px;
   overflow: hidden;
   background: linear-gradient(160deg, var(--plate), var(--plate-2));
-}
-.zap-logo .logo {
-  width: 80%;
-  height: 70%;
-  object-fit: contain;
 }
 .zap-logo .logo-fallback {
   font-size: 13px;

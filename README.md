@@ -130,7 +130,7 @@ Pour les autres, un petit proxy gratuit sur Cloudflare lève ces blocages : voir
 ```bash
 npm install
 bash e2e/make-streams.sh                     # flux HLS de test (ffmpeg)
-npm run data                                 # catalogue complet avec vérification (≈ 10-20 min)
+UV_THREADPOOL_SIZE=128 npm run data          # catalogue complet avec vérification (≈ 10-20 min)
 npm run data -- --limit 2000                 # ne vérifie que les 2 000 premiers liens (rapide)
 npm run data -- --no-check                   # catalogue hors-ligne, non vérifié
 npm run dev                                  # http://localhost:5173

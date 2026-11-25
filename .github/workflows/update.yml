@@ -50,6 +50,9 @@ jobs:
 
       - name: Vérifier tous les liens
         env:
+          # Node résout les noms de domaine sur 4 fils par défaut : avec des milliers de serveurs,
+          # la file d'attente DNS ferait expirer des liens pourtant vivants.
+          UV_THREADPOOL_SIZE: '128'
           ZAPETTE_ORIGIN: https://${{ github.repository_owner }}.github.io
           # Facultatif : avec ce secret, la liste est chiffrée et l'app demande un mot de passe.
           ZAPETTE_PASSWORD: ${{ secrets.ZAPETTE_PASSWORD }}

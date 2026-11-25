@@ -9,6 +9,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { encryptCatalog, saltFor, ITERATIONS } from '../scripts/lib/vault.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { values: args } = parseArgs({
@@ -465,6 +466,73 @@ async function main() {
   await check('mobile : aucune erreur JavaScript', async () => {
     assert(!mErrors.length, mErrors.join(' | '));
   });
+
+  // =================== Zapette privée ===================
+  console.log('\nZapette privée (mot de passe)');
+  const PRIV = path.join(OUT, 'site-prive');
+  await cp(SITE, PRIV, { recursive: true });
+  const salt = saltFor('e2e/zapette');
+  await writeFile(path.join(PRIV, 'data/channels.enc'), await encryptCatalog(JSON.stringify(catalog), 'tartiflette', salt));
+  await writeFile(
+    path.join(PRIV, 'data/manifest.json'),
+    JSON.stringify({ v: 1, locked: true, file: 'channels.enc', kdf: { name: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: salt.toString('base64') } }),
+  );
+  await rm(path.join(PRIV, 'data/channels.json'), { force: true });
+  const privSrv = staticServer(PRIV);
+  const privPort = await listen(privSrv);
+  const PRIV_APP = `http://localhost:${privPort}/`;
+  const priv = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await mockExternal(priv);
+  const pp = await priv.newPage();
+  const pErrors = [];
+  pp.on('pageerror', (e) => pErrors.push(e.message));
+  await pp.goto(PRIV_APP);
+  await check('privée : écran de mot de passe, aucune chaîne lisible sans lui', async () => {
+    await pp.waitForSelector('.lock-card h1', { timeout: 15000 });
+    assert(!(await pp.$('.tile')), 'des chaînes sont visibles');
+    const plain = await pp.evaluate(async () => (await fetch('./data/channels.json')).status);
+    assert(plain === 404, `channels.json accessible (${plain})`);
+    await pp.waitForTimeout(300);
+    await shot(pp, 'mobile-lock');
+  });
+  await check('privée : mauvais mot de passe refusé', async () => {
+    await pp.fill('.lock-card input', 'raclette');
+    await pp.click('.lock-card button[type="submit"]');
+    await pp.waitForSelector('.lock-error', { timeout: 10000 });
+    assert(/incorrect/.test(await pp.textContent('.lock-error')), 'message absent');
+  });
+  await check('privée : bon mot de passe → l’app s’ouvre', async () => {
+    await pp.fill('.lock-card input', 'tartiflette');
+    await pp.click('.lock-card button[type="submit"]');
+    await pp.waitForSelector('.hero-title', { timeout: 15000 });
+  });
+  await check('privée : mot de passe mémorisé après rechargement', async () => {
+    await pp.reload();
+    await pp.waitForSelector('.hero-title', { timeout: 15000 });
+    const stored = await pp.evaluate(() => localStorage.getItem('zp.vault') || '');
+    assert(!stored.includes('tartiflette'), 'le mot de passe est stocké en clair');
+  });
+  await check('privée : lecture d’une chaîne', async () => {
+    await pp.evaluate(() => (location.hash = '#/regarder/TestCine.fr'));
+    await pp.waitForFunction(() => (document.querySelector('.player-video')?.currentTime ?? 0) > 1, null, { timeout: 20000 });
+    await pp.evaluate(() => history.back());
+  });
+  await check('privée : playlists TV dans un dossier secret', async () => {
+    await pp.evaluate(() => (location.hash = '#/reglages'));
+    await pp.waitForSelector('.copy-item small');
+    const links = await pp.$$eval('.copy-item small', (s) => s.map((x) => x.textContent));
+    assert(links.every((l) => /\/playlists\/[0-9a-f]{24}\/zapette/.test(l)), links.join(' | '));
+  });
+  await check('privée : « Verrouiller cet appareil » redemande le mot de passe', async () => {
+    await pp.click('text=Verrouiller cet appareil');
+    await pp.waitForSelector('.lock-card h1', { timeout: 5000 });
+    await pp.reload();
+    await pp.waitForSelector('.lock-card h1', { timeout: 15000 });
+  });
+  await check('privée : aucune erreur JavaScript', async () => {
+    assert(!pErrors.length, pErrors.join(' | '));
+  });
+  privSrv.close();
 
   await browser.close();
   siteSrv.close();

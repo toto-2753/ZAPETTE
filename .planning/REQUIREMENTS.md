@@ -46,6 +46,12 @@
 - [x] **MEDIA-02**: Nouveautés films et séries (TMDB) : tendances, à l'affiche en France, à venir
 - [x] **MEDIA-03**: Fiche : résumé, note, bande-annonce, où regarder légalement en France (gratuit, pub, abonnement, location)
 
+### Accès privé (PRIV)
+
+- [x] **PRIV-01**: Liste chiffrée par mot de passe (secret GitHub), écran de connexion, mot de passe demandé une fois par appareil
+- [x] **PRIV-02**: Playlists TV dans un dossier secret, « Verrouiller cet appareil »
+- [ ] **PRIV-03**: Variante Cloudflare Pages + Access (accès par personne) — si demandé
+
 ## v2 Requirements
 
 - **EPG-01**: Guide des programmes (EPG) — ce qui passe maintenant / ensuite

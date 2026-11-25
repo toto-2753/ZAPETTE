@@ -58,6 +58,32 @@ toutes les 6 heures.
 > Tu peux aussi connecter GitHub à Claude (Réglages → Connecteurs) et créer le dépôt vide : Claude
 > pourra pousser le code et tu n'auras plus que l'étape 4 à faire.
 
+## Garder l'app privée
+
+Par défaut, une app publiée sur GitHub Pages est visible par toute personne qui a le lien : GitHub ne
+propose un accès restreint qu'avec son offre Enterprise payante. Zapette a donc son propre verrou.
+
+**Mot de passe (intégré, gratuit)**
+
+1. Dans le dépôt : **Settings → Secrets and variables → Actions → New repository secret**.
+2. Nom : `ZAPETTE_PASSWORD`. Valeur : un mot de passe **nouveau**, que tu n'utilises pour aucun compte.
+3. Relance le workflow (**Actions → Run workflow**).
+
+La liste des chaînes est alors chiffrée (AES-256). Sans le mot de passe, l'app n'affiche qu'un écran
+de connexion. Chaque personne invitée le tape une fois par appareil. Pour retirer l'accès à
+quelqu'un, change le secret, relance le workflow et donne le nouveau mot de passe aux autres. Les
+playlists pour les apps TV passent dans un dossier secret, dont les liens s'affichent dans les
+Réglages une fois connecté. Le code de l'app reste visible sur le dépôt, ce qui est sans
+importance : il ne contient ni chaîne ni mot de passe.
+
+**Un accès par personne (Cloudflare Access)**
+
+Pour que chaque invité se connecte avec sa propre adresse mail (code reçu par mail) et pouvoir
+retirer une personne sans changer le mot de passe des autres, l'app peut être hébergée sur
+Cloudflare Pages avec Cloudflare Access devant. C'est gratuit jusqu'à 50 personnes, mais Cloudflare
+demande une carte bancaire à l'inscription (rien n'est prélevé). Le workflow est à adapter pour
+publier sur Cloudflare au lieu de GitHub Pages.
+
 ## L'installer sur tes appareils
 
 | Appareil | Comment |

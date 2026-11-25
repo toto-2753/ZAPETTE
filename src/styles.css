@@ -1338,6 +1338,53 @@ main {
   }
 }
 
+/* ---------- Écran privé ---------- */
+.lock {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: calc(24px + var(--safe-t)) 20px calc(24px + var(--safe-b));
+  background:
+    linear-gradient(
+      90deg,
+      var(--m-white) 0 14.28%,
+      var(--m-yellow) 0 28.57%,
+      var(--m-cyan) 0 42.85%,
+      var(--m-green) 0 57.14%,
+      var(--m-magenta) 0 71.42%,
+      var(--m-red) 0 85.71%,
+      var(--m-blue) 0
+    )
+      bottom / 100% 6px no-repeat,
+    var(--bg);
+}
+.lock-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 28px;
+}
+.lock-card h1 {
+  font: 700 34px/1.05 var(--font-cond);
+  margin-top: 6px;
+}
+.lock-card > p {
+  color: var(--ink-2);
+}
+.lock-card .text input {
+  font-size: 18px;
+}
+.lock-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--m-red);
+  font-weight: 600;
+}
+
 /* ---------- Toasts ---------- */
 .toasts {
   position: fixed;

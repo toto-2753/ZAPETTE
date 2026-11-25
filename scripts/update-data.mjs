@@ -6,13 +6,14 @@
 //   node scripts/update-data.mjs                      # tout, avec vérification
 //   node scripts/update-data.mjs --extra-dir /tmp/itant/streams
 //   node scripts/update-data.mjs --api ./data-raw --no-check   # dev hors-ligne, sans vérification
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { parseM3U, writeM3U } from './lib/m3u.mjs';
 import { buildCandidates, finalize } from './lib/catalog.mjs';
 import { checkStream, interleaveByHost, pool } from './lib/hls-check.mjs';
+import { encryptCatalog, ITERATIONS, playlistToken, saltFor } from './lib/vault.mjs';
 import categoriesFr from '../shared/categories-fr.json' with { type: 'json' };
 
 const { values: args } = parseArgs({
@@ -220,10 +221,30 @@ async function main() {
   const checked = Boolean(results);
 
   const dataDir = path.join(args.out, 'data');
-  const plDir = path.join(args.out, 'playlists');
   await mkdir(dataDir, { recursive: true });
+  const catalogJson = JSON.stringify({ v: 1, generatedAt, checked, stats, channels: final });
+
+  // Zapette privée : si ZAPETTE_PASSWORD est défini, la liste est chiffrée et les playlists TV
+  // vont dans un dossier secret. Sans le mot de passe, l'app ne peut rien afficher.
+  const password = process.env.ZAPETTE_PASSWORD || '';
+  let plDir = path.join(args.out, 'playlists');
+  if (password) {
+    const salt = saltFor(process.env.ZAPETTE_SALT_SEED || process.env.GITHUB_REPOSITORY || 'zapette');
+    await writeFile(path.join(dataDir, 'channels.enc'), await encryptCatalog(catalogJson, password, salt));
+    await rm(path.join(dataDir, 'channels.json'), { force: true });
+    await rm(plDir, { recursive: true, force: true });
+    plDir = path.join(plDir, playlistToken(password));
+    await writeFile(
+      path.join(dataDir, 'manifest.json'),
+      JSON.stringify({ v: 1, locked: true, file: 'channels.enc', kdf: { name: 'PBKDF2-SHA256', iterations: ITERATIONS, salt: salt.toString('base64') } }),
+    );
+    log('🔒 Mode privé : liste chiffrée, playlists dans un dossier secret.');
+  } else {
+    await writeFile(path.join(dataDir, 'channels.json'), catalogJson);
+    await rm(path.join(dataDir, 'channels.enc'), { force: true });
+    await writeFile(path.join(dataDir, 'manifest.json'), JSON.stringify({ v: 1, locked: false, file: 'channels.json' }));
+  }
   await mkdir(plDir, { recursive: true });
-  await writeFile(path.join(dataDir, 'channels.json'), JSON.stringify({ v: 1, generatedAt, checked, stats, channels: final }));
   await writeFile(
     path.join(dataDir, 'status.json'),
     JSON.stringify({ generatedAt, checked, stats, reasons: results ? topReasons(results) : {} }, null, 2),

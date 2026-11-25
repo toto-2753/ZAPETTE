@@ -10,6 +10,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Envoie les cookies avec le manifeste : nécessaire si l'app est protégée par Cloudflare Access.
+      useCredentials: true,
       injectRegister: 'script-defer',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
@@ -38,7 +40,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Catalogue : réseau d'abord (liste fraîche), cache si hors-ligne.
-            urlPattern: ({ url }) => /\/data\/(channels|status)\.json$/.test(url.pathname),
+            urlPattern: ({ url }) => /\/data\/(channels\.json|channels\.enc|status\.json|manifest\.json)$/.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'zapette-data',

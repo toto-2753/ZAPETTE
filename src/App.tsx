@@ -10,6 +10,7 @@ import News from './pages/News';
 import Search from './pages/Search';
 import MyList from './pages/MyList';
 import Settings from './pages/Settings';
+import Lock from './pages/Lock';
 
 const Player = lazy(() => import('./pages/Player'));
 
@@ -53,6 +54,12 @@ function page(route: Route): ReactNode {
 }
 
 function Shell() {
+  const { status } = useCatalog();
+  if (status === 'locked') return <Lock />;
+  return <Pages />;
+}
+
+function Pages() {
   const route = useRoute();
   const { byId } = useCatalog();
   const watchingId = route.parts[0] === 'regarder' ? route.parts[1] : undefined;
@@ -92,7 +99,6 @@ function Shell() {
           <Player id={watchingId} />
         </Suspense>
       )}
-      <Toasts />
     </>
   );
 }
@@ -101,6 +107,7 @@ export function App() {
   return (
     <CatalogProvider>
       <Shell />
+      <Toasts />
     </CatalogProvider>
   );
 }

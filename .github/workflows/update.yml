@@ -41,6 +41,9 @@ jobs:
       - name: Vérifier tous les liens
         env:
           ZAPETTE_ORIGIN: https://${{ github.repository_owner }}.github.io
+          # Facultatif : avec ce secret, la liste est chiffrée et l'app demande un mot de passe.
+          ZAPETTE_PASSWORD: ${{ secrets.ZAPETTE_PASSWORD }}
+          ZAPETTE_SALT_SEED: ${{ github.repository }}
         run: node scripts/update-data.mjs --extra-dir /tmp/itant/streams --concurrency 64 --per-host 6
 
       - name: Construire l'app

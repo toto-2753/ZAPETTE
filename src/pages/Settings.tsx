@@ -11,7 +11,7 @@ import { TmdbSetup } from '../components/Media';
 import { Toggle, toast } from '../components/ui';
 
 export default function Settings() {
-  const { catalog, all, hiddenCount, reload } = useCatalog();
+  const { catalog, all, hiddenCount, reload, isPrivate, playlistDir, lockDevice } = useCatalog();
   const settings = settingsStore.use();
   const dead = deadStore.use();
   const set = <K extends keyof S>(k: K, v: S[K]) => settingsStore.set((s) => ({ ...s, [k]: v }));
@@ -21,7 +21,7 @@ export default function Settings() {
     return [...m.entries()].sort((a, b) => countryName(a[0]).localeCompare(countryName(b[0]), 'fr'));
   }, [all]);
   const deadCount = Object.keys(dead).length;
-  const playlist = (name: string) => new URL(`./playlists/${name}`, location.href).href;
+  const playlist = (name: string) => new URL(`./${playlistDir}/${name}`, location.href).href;
 
   return (
     <div className="page page-narrow settings">
@@ -75,6 +75,21 @@ export default function Settings() {
           <p className="muted">Chargement…</p>
         )}
       </section>
+
+      {isPrivate && (
+        <section className="panel">
+          <h2>Accès privé</h2>
+          <p>
+            Cette Zapette est protégée par un mot de passe : sans lui, la liste des chaînes est illisible. Pour retirer l’accès à quelqu’un,
+            change le mot de passe (secret <code>ZAPETTE_PASSWORD</code> du dépôt GitHub) et donne le nouveau aux autres.
+          </p>
+          <div className="btn-row">
+            <button type="button" className="btn btn-ghost" onClick={lockDevice}>
+              <Icon name="close" size={18} /> Verrouiller cet appareil
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="panel">
         <h2>Préférences</h2>
@@ -135,7 +150,7 @@ export default function Settings() {
           </li>
           <li>
             <strong>Smart TV</strong> : ouvre l’adresse de Zapette dans le navigateur de la TV, ou charge une playlist vérifiée dans une app IPTV
-            (TiviMate, IPTV Smarters, VLC…).
+            (TiviMate, IPTV Smarters, VLC…).{isPrivate ? ' Ces liens sont secrets : ne les partage qu’avec les personnes invitées.' : ''}
           </li>
         </ul>
         <div className="copy-list">
